@@ -13,6 +13,7 @@
 
 #include "ngx_http_lua_directive.h"
 #include "ngx_http_lua_capturefilter.h"
+#include "ngx_http_lua_preaccessby.h"
 #include "ngx_http_lua_precontentby.h"
 #include "ngx_http_lua_contentby.h"
 #include "ngx_http_lua_server_rewriteby.h"
@@ -366,6 +367,31 @@ static ngx_command_t ngx_http_lua_cmds[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
       (void *) ngx_http_lua_access_handler_inline },
+
+    /* preaccess_by_lua_block { <inline script> } */
+    { ngx_string("preaccess_by_lua_block"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
+                        |NGX_CONF_BLOCK|NGX_CONF_NOARGS,
+      ngx_http_lua_preaccess_by_lua_block,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      (void *) ngx_http_lua_preaccess_handler_inline },
+
+    /* preaccess_by_lua_file filename; */
+    { ngx_string("preaccess_by_lua_file"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
+                        |NGX_CONF_TAKE1,
+      ngx_http_lua_preaccess_by_lua,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      (void *) ngx_http_lua_preaccess_handler_file },
+
+    { ngx_string("preaccess_by_lua_no_postpone"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_lua_main_conf_t, postponed_to_preaccess_phase_end),
+      NULL },
 
     /* precontent_by_lua_block { <inline script> } */
     { ngx_string("precontent_by_lua_block"),
@@ -883,6 +909,10 @@ ngx_http_lua_init(ngx_conf_t *cf)
         lmcf->postponed_to_access_phase_end = 0;
     }
 
+    if (lmcf->postponed_to_preaccess_phase_end == NGX_CONF_UNSET) {
+        lmcf->postponed_to_preaccess_phase_end = 0;
+    }
+
     if (lmcf->postponed_to_precontent_phase_end == NGX_CONF_UNSET) {
         lmcf->postponed_to_precontent_phase_end = 0;
     }
@@ -915,6 +945,15 @@ ngx_http_lua_init(ngx_conf_t *cf)
         }
 
         *h = ngx_http_lua_access_handler;
+    }
+
+    if (lmcf->requires_preaccess) {
+        h = ngx_array_push(&cmcf->phases[NGX_HTTP_PREACCESS_PHASE].handlers);
+        if (h == NULL) {
+            return NGX_ERROR;
+        }
+
+        *h = ngx_http_lua_preaccess_handler;
     }
 
     if (lmcf->requires_precontent) {
@@ -1159,6 +1198,7 @@ ngx_http_lua_create_main_conf(ngx_conf_t *cf)
 #endif
     lmcf->postponed_to_rewrite_phase_end = NGX_CONF_UNSET;
     lmcf->postponed_to_access_phase_end = NGX_CONF_UNSET;
+    lmcf->postponed_to_preaccess_phase_end = NGX_CONF_UNSET;
     lmcf->postponed_to_precontent_phase_end = NGX_CONF_UNSET;
 
     lmcf->set_sa_restart = NGX_CONF_UNSET;
@@ -1509,6 +1549,11 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
      *      conf->rewrite_handler = NULL;
      *      conf->rewrite_chunkname = NULL;
      *
+     *      conf->preaccess_src = {{ 0, NULL }, NULL, NULL, NULL};
+     *      conf->preaccess_src_key = NULL;
+     *      conf->preaccess_handler = NULL;
+     *      conf->preaccess_chunkname = NULL;
+     *
      *      conf->precontent_src = {{ 0, NULL }, NULL, NULL, NULL};
      *      conf->precontent_src_key = NULL;
      *      conf->precontent_handler = NULL;
@@ -1571,6 +1616,7 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
 
     conf->rewrite_src_ref = LUA_REFNIL;
     conf->access_src_ref = LUA_REFNIL;
+    conf->preaccess_src_ref = LUA_REFNIL;
     conf->precontent_src_ref = LUA_REFNIL;
     conf->content_src_ref = LUA_REFNIL;
     conf->header_filter_src_ref = LUA_REFNIL;
@@ -1615,6 +1661,14 @@ ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->access_src_ref = prev->access_src_ref;
         conf->access_src_key = prev->access_src_key;
         conf->access_chunkname = prev->access_chunkname;
+    }
+
+    if (conf->preaccess_src.value.len == 0) {
+        conf->preaccess_src = prev->preaccess_src;
+        conf->preaccess_handler = prev->preaccess_handler;
+        conf->preaccess_src_ref = prev->preaccess_src_ref;
+        conf->preaccess_src_key = prev->preaccess_src_key;
+        conf->preaccess_chunkname = prev->preaccess_chunkname;
     }
 
     if (conf->precontent_src.value.len == 0) {

@@ -35,6 +35,7 @@
 #define NGX_HTTP_LUA_CONTEXT_YIELDABLE (NGX_HTTP_LUA_CONTEXT_REWRITE         \
                                 | NGX_HTTP_LUA_CONTEXT_SERVER_REWRITE        \
                                 | NGX_HTTP_LUA_CONTEXT_ACCESS                \
+                                | NGX_HTTP_LUA_CONTEXT_PREACCESS             \
                                 | NGX_HTTP_LUA_CONTEXT_PRECONTENT            \
                                 | NGX_HTTP_LUA_CONTEXT_CONTENT               \
                                 | NGX_HTTP_LUA_CONTEXT_TIMER                 \
@@ -52,6 +53,7 @@
      : (c) == NGX_HTTP_LUA_CONTEXT_REWRITE ? "rewrite_by_lua*"               \
      : (c) == NGX_HTTP_LUA_CONTEXT_SERVER_REWRITE ? "server_rewrite_by_lua*" \
      : (c) == NGX_HTTP_LUA_CONTEXT_ACCESS ? "access_by_lua*"                 \
+     : (c) == NGX_HTTP_LUA_CONTEXT_PREACCESS ? "preaccess_by_lua*"           \
      : (c) == NGX_HTTP_LUA_CONTEXT_PRECONTENT ? "precontent_by_lua*"         \
      : (c) == NGX_HTTP_LUA_CONTEXT_CONTENT ? "content_by_lua*"               \
      : (c) == NGX_HTTP_LUA_CONTEXT_LOG ? "log_by_lua*"                       \

@@ -1141,6 +1141,8 @@ Directives
 * [set_by_lua](#set_by_lua)
 * [set_by_lua_block](#set_by_lua_block)
 * [set_by_lua_file](#set_by_lua_file)
+* [preaccess_by_lua_block](#preaccess_by_lua_block)
+* [preaccess_by_lua_file](#preaccess_by_lua_file)
 * [precontent_by_lua_block](#precontent_by_lua_block)
 * [precontent_by_lua_file](#precontent_by_lua_file)
 * [content_by_lua](#content_by_lua)
@@ -1201,6 +1203,7 @@ Directives
 * [lua_http10_buffering](#lua_http10_buffering)
 * [rewrite_by_lua_no_postpone](#rewrite_by_lua_no_postpone)
 * [access_by_lua_no_postpone](#access_by_lua_no_postpone)
+* [preaccess_by_lua_no_postpone](#preaccess_by_lua_no_postpone)
 * [precontent_by_lua_no_postpone](#precontent_by_lua_no_postpone)
 * [lua_transform_underscores_in_response_headers](#lua_transform_underscores_in_response_headers)
 * [lua_check_client_abort](#lua_check_client_abort)
@@ -1845,6 +1848,47 @@ The Lua code cache can be temporarily disabled during development by
 switching [lua_code_cache](#lua_code_cache) `off` in `nginx.conf` to avoid reloading Nginx.
 
 This directive requires the [ngx_devel_kit](https://github.com/simplresty/ngx_devel_kit) module.
+
+[Back to TOC](#directives)
+
+preaccess_by_lua_block
+--------------------
+
+**syntax:** *preaccess_by_lua_block { lua-script }*
+
+**context:** *http, server, location, location if*
+
+**phase:** *preaccess tail*
+
+Acts as a preaccess phase handler and executes Lua code string specified in `{ <lua-script }` for every request.
+The Lua code may make [API calls](#nginx-api-for-lua) and is executed as a new spawned coroutine in an independent global environment (i.e. a sandbox).
+
+Note that this handler always runs *after* the standard [ngx_http_post_rewrite_module](https://nginx.org/en/docs/http/ngx_http_core_module.html#post_rewrite) but *before* the access phase handlers such as [ngx_http_limit_req_module](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html), [ngx_http_limit_conn_module](https://nginx.org/en/docs/http/ngx_http_limit_conn_module.html), and [ngx_http_access_module](https://nginx.org/en/docs/http/ngx_http_access_module.html).
+
+You can use [preaccess_by_lua_block](#preaccess_by_lua_block) to perform early request filtering, authentication, or other pre-access checks.
+
+You can use the [preaccess_by_lua_no_postpone](#preaccess_by_lua_no_postpone) directive to control when to run this handler inside the `preaccess` request-processing phase of Nginx. By default, the Lua code is postponed to run at the very end of the `preaccess` phase so that it runs after all other preaccess handlers.
+
+[Back to TOC](#directives)
+
+preaccess_by_lua_file
+-------------------
+
+**syntax:** *preaccess_by_lua_file &lt;path-to-lua-script-file&gt;*
+
+**context:** *http, server, location, location if*
+
+**phase:** *preaccess tail*
+
+Equivalent to [preaccess_by_lua_block](#preaccess_by_lua_block), except that the file specified by `<path-to-lua-script-file>` contains the Lua code, or, as from the `v0.5.0rc32` release, the [LuaJIT bytecode](#luajit-bytecode-support) to be executed.
+
+Nginx variables can be used in the `<path-to-lua-script-file>` string to provide flexibility. This however carries some risks and is not ordinarily recommended.
+
+When a relative path like `foo/bar.lua` is given, they will be turned into the absolute path relative to the `server prefix` path determined by the `-p PATH` command-line option while starting the Nginx server.
+
+When the Lua code cache is turned on (by default), the user code is loaded once at the first request and cached
+and the Nginx config must be reloaded each time the Lua source file is modified.
+The Lua code cache can be temporarily disabled during development by switching [lua_code_cache](#lua_code_cache) `off` in `nginx.conf` to avoid repeatedly reloading Nginx.
 
 [Back to TOC](#directives)
 
@@ -3804,6 +3848,21 @@ access_by_lua_no_postpone
 Controls whether or not to disable postponing [access_by_lua*](#access_by_lua) directives to run at the end of the `access` request-processing phase. By default, this directive is turned off and the Lua code is postponed to run at the end of the `access` phase.
 
 This directive was first introduced in the `v0.9.20` release.
+
+[Back to TOC](#directives)
+
+preaccess_by_lua_no_postpone
+--------------------------
+
+**syntax:** *preaccess_by_lua_no_postpone on|off*
+
+**default:** *preaccess_by_lua_no_postpone off*
+
+**context:** *http*
+
+Controls whether or not to disable postponing [preaccess_by_lua*](#preaccess_by_lua_block) directives to run at the end of the `preaccess` request-processing phase. By default, this directive is turned off and the Lua code is postponed to run at the end of the `preaccess` phase.
+
+When turned on, the preaccess_by_lua handler will run in its natural position among other preaccess phase handlers (such as `limit_req`, `limit_conn`, etc.) and will not skip them on normal completion.
 
 [Back to TOC](#directives)
 

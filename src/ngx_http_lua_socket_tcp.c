@@ -5378,6 +5378,7 @@ ngx_http_lua_req_socket(lua_State *L)
     ngx_http_lua_check_context(L, ctx, NGX_HTTP_LUA_CONTEXT_REWRITE
                                | NGX_HTTP_LUA_CONTEXT_SERVER_REWRITE
                                | NGX_HTTP_LUA_CONTEXT_ACCESS
+                               | NGX_HTTP_LUA_CONTEXT_PREACCESS
                                | NGX_HTTP_LUA_CONTEXT_PRECONTENT
                                | NGX_HTTP_LUA_CONTEXT_CONTENT);
 
